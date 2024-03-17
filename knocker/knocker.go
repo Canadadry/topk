@@ -4,6 +4,7 @@ package knocker
 type sequenceTracker struct {
 	sequence []uint16
 	hits     map[string][]int
+	valid    func(string)
 }
 
 // newSequenceTracker creates a new sequence tracker with the given port sequence

@@ -6,54 +6,37 @@ import (
 
 // TestCheckSequence tests the checkSequence method of sequenceTracker
 func TestCheckSequence(t *testing.T) {
-	tests := []struct {
+	type step struct {
+		srcIP string
+		port  uint16
+		valid bool
+	}
+	tests := map[string]struct {
 		name     string
 		sequence []uint16
-		steps    []struct {
-			srcIP string
-			port  uint16
-			valid bool // Expected result after this step
-		}
-		want bool // Expected result for sequence completion
+		steps    []step
 	}{
-		{
-			name:     "Valid sequence",
+		"Valid sequence": {
 			sequence: []uint16{1000, 2000, 3000, 4000},
-			steps: []struct {
-				srcIP string
-				port  uint16
-				valid bool
-			}{
+			steps: []step{
 				{"192.168.1.1", 1000, false},
 				{"192.168.1.1", 2000, false},
 				{"192.168.1.1", 3000, false},
 				{"192.168.1.1", 4000, true},
 			},
-			want: true,
 		},
-		{
-			name:     "Invalid sequence",
+		"Invalid sequence": {
 			sequence: []uint16{1000, 2000, 3000, 4000},
-			steps: []struct {
-				srcIP string
-				port  uint16
-				valid bool
-			}{
+			steps: []step{
 				{"192.168.1.2", 1000, false},
 				{"192.168.1.2", 3000, false}, // Out of order
 				{"192.168.1.2", 2000, false},
 				{"192.168.1.2", 4000, false},
 			},
-			want: false,
 		},
-		{
-			name:     "Reset on invalid step",
+		"Reset on invalid step": {
 			sequence: []uint16{1000, 2000, 3000, 4000},
-			steps: []struct {
-				srcIP string
-				port  uint16
-				valid bool
-			}{
+			steps: []step{
 				{"192.168.1.3", 1000, false},
 				{"192.168.1.3", 2000, false},
 				{"192.168.1.3", 5000, false}, // Invalid step
@@ -62,7 +45,6 @@ func TestCheckSequence(t *testing.T) {
 				{"192.168.1.3", 3000, false},
 				{"192.168.1.3", 4000, true},
 			},
-			want: true,
 		},
 	}
 
@@ -73,9 +55,6 @@ func TestCheckSequence(t *testing.T) {
 				if got := tracker.CheckSequence(step.srcIP, step.port); got != step.valid {
 					t.Fatalf("checkSequence() got = %v, want %v for step srcIP %s port %d", got, step.valid, step.srcIP, step.port)
 				}
-			}
-			if got := tracker.CheckSequence("final_check", 0); got != tt.want {
-				t.Fatalf("Final sequence check got = %v, want %v", got, tt.want)
 			}
 		})
 	}
