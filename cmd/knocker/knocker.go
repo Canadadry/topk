@@ -41,7 +41,7 @@ func Run(args []string) error {
 	}
 	fmt.Printf("Monitoring for port knocking sequence on %s: %v\n", iface, ports)
 	// Initialize the sequence tracker with the provided ports
-	tracker := knocker.New(ports, time.Second)
+	tracker := knocker.New(ports, 10*time.Second, time.Second)
 
 	// Use the handle as a packet source to process all packets
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
