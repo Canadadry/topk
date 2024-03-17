@@ -14,7 +14,7 @@ type SequenceTracker struct {
 	minInterval time.Duration
 }
 
-func New(provider PortSequenceProvider, timeout, minInterval time.Duration) *SequenceTracker {
+func NewKnocker(provider PortSequenceProvider, timeout, minInterval time.Duration) *SequenceTracker {
 	return &SequenceTracker{
 		provider:    provider,
 		hits:        make(map[string]int),

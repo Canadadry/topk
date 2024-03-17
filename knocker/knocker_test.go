@@ -131,7 +131,7 @@ func TestCheckSequence(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			tracker := New(&staticProvider, timeout, minInterval)
+			tracker := NewKnocker(&staticProvider, timeout, minInterval)
 			for i, step := range tt.steps {
 				if got := tracker.CheckSequence(step.srcIP, step.port, step.timestamp); got != step.valid {
 					t.Fatalf("[%d] got = %v, want %v for step srcIP %s port %d", i, got, step.valid, step.srcIP, step.port)

@@ -41,9 +41,17 @@ func Run(args []string) error {
 	}
 	fmt.Printf("Monitoring for port knocking sequence on %s: %v\n", iface, ports)
 	// Initialize the sequence tracker with the provided ports
-	tracker := knocker.New(&knocker.StaticSequenceProvider{
-		Sequence: ports,
-	}, 10*time.Second, time.Second)
+	tracker := knocker.NewUserKnocker(knocker.UserKnockerConfig{
+		Users: map[string]string{
+			"admin": "password",
+		},
+		SequenceLen:              10,
+		MinPort:                  16000,
+		MaxPort:                  65535,
+		SequenceIntervalInSecond: 15,
+		Timeout:                  10 * time.Second,
+		MinInterval:              time.Second,
+	})
 
 	// Use the handle as a packet source to process all packets
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
@@ -55,12 +63,11 @@ func Run(args []string) error {
 		if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
 			udp, _ := udpLayer.(*layers.UDP)
 			srcIP := packet.NetworkLayer().NetworkFlow().Src().String()
-			srcPort := udp.SrcPort
 			dstPort := udp.DstPort
 
 			// Check if the current packet is part of the sequence
-			if tracker.CheckSequence(srcIP, uint16(dstPort), time.Now()) {
-				fmt.Printf("Sequence completed by %s (src port: %d)\n", srcIP, srcPort)
+			if user, ok := tracker.CheckSequence(srcIP, uint16(dstPort), time.Now()); ok {
+				fmt.Printf("%s has completed the sequence from %s \n", user, srcIP)
 			}
 		}
 	}
