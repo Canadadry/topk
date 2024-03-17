@@ -2,17 +2,29 @@ package knocker
 
 import "time"
 
+type PortSequenceProvider interface {
+	GetSequence(srcIP string, timestamp time.Time) []uint16
+}
+
+type StaticSequenceProvider struct {
+	Sequence []uint16
+}
+
+func (p *StaticSequenceProvider) GetSequence(srcIP string, timestamp time.Time) []uint16 {
+	return p.Sequence
+}
+
 type SequenceTracker struct {
-	sequence    []uint16
+	provider    PortSequenceProvider
 	hits        map[string][]int
 	timestamps  map[string]time.Time
 	timeout     time.Duration
 	minInterval time.Duration
 }
 
-func New(sequence []uint16, timeout, minInterval time.Duration) *SequenceTracker {
+func New(provider PortSequenceProvider, timeout, minInterval time.Duration) *SequenceTracker {
 	return &SequenceTracker{
-		sequence:    sequence,
+		provider:    provider,
 		hits:        make(map[string][]int),
 		timestamps:  make(map[string]time.Time), // Initialize the map
 		timeout:     timeout,
@@ -22,6 +34,8 @@ func New(sequence []uint16, timeout, minInterval time.Duration) *SequenceTracker
 
 // Modify checkSequence to include a timestamp parameter
 func (s *SequenceTracker) CheckSequence(srcIP string, port uint16, timestamp time.Time) bool {
+	currentSequence := s.provider.GetSequence(srcIP, timestamp)
+
 	if lastTimestamp, ok := s.timestamps[srcIP]; ok {
 		// Check if the step is too quick after the last one
 		if timestamp.Before(lastTimestamp.Add(s.minInterval)) {
@@ -46,11 +60,11 @@ func (s *SequenceTracker) CheckSequence(srcIP string, port uint16, timestamp tim
 	for ip, seq := range s.hits {
 		if ip == srcIP {
 			nextIndex := len(seq)
-			if nextIndex < len(s.sequence) && s.sequence[nextIndex] == port {
+			if nextIndex < len(currentSequence) && currentSequence[nextIndex] == port {
 				s.hits[srcIP] = append(s.hits[srcIP], nextIndex)
 
 				s.timestamps[srcIP] = timestamp
-				if len(s.hits[srcIP]) == len(s.sequence) {
+				if len(s.hits[srcIP]) == len(currentSequence) {
 					// Sequence completed
 					delete(s.hits, srcIP) // Reset for this IP
 					return true
@@ -63,7 +77,7 @@ func (s *SequenceTracker) CheckSequence(srcIP string, port uint16, timestamp tim
 		}
 	}
 	// New IP or starting over
-	if len(s.sequence) > 0 && s.sequence[0] == port {
+	if len(currentSequence) > 0 && currentSequence[0] == port {
 		s.hits[srcIP] = []int{0} // Start sequence
 	}
 	return false

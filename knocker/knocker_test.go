@@ -14,7 +14,9 @@ func TestCheckSequence(t *testing.T) {
 		valid     bool
 	}
 	now := time.Now()
-	sequence := []uint16{1000, 2000, 3000, 4000}
+	staticProvider := StaticSequenceProvider{
+		Sequence: []uint16{1000, 2000, 3000, 4000},
+	}
 	tests := map[string]struct {
 		steps []step
 	}{
@@ -72,7 +74,7 @@ func TestCheckSequence(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			tracker := New(sequence, 10*time.Second, 1*time.Second)
+			tracker := New(&staticProvider, 10*time.Second, 1*time.Second)
 			for i, step := range tt.steps {
 				if got := tracker.CheckSequence(step.srcIP, step.port, step.timestamp); got != step.valid {
 					t.Fatalf("[%d] got = %v, want %v for step srcIP %s port %d", i, got, step.valid, step.srcIP, step.port)
