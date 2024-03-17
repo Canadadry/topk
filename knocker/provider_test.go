@@ -11,6 +11,7 @@ func TestGetSequenceCases(t *testing.T) {
 		MinPort:          49152,
 		MaxPort:          65535,
 		IntervalInSecond: 15,
+		SequenceLen:      4,
 	}
 
 	timestamp := time.Date(2022, 10, 31, 15, 0, 0, 0, time.UTC)
@@ -78,5 +79,45 @@ func TestGetSequenceCases(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestPortDistribution(t *testing.T) {
+	provider := TimeBasedSequenceProvider{
+		Salt:             "TestSalt",
+		MinPort:          49152,
+		MaxPort:          65535,
+		IntervalInSecond: 15,
+		SequenceLen:      4,
+	}
+	now := time.Date(2022, 10, 31, 15, 0, 0, 0, time.UTC)
+
+	portCount := make(map[uint16]int)
+	totalPorts := int(provider.MaxPort - provider.MinPort + 1)
+	attempts := 10000000
+	for i := 0; i < attempts; i++ {
+		timestamp := now.Add(time.Duration(i*provider.IntervalInSecond) * time.Second)
+		sequence := provider.GetSequence("192.168.1.1", timestamp)
+		for _, port := range sequence {
+			portCount[port]++
+		}
+	}
+
+	percentOfTolerance := 0.05
+	minCountThatShouldMatch := totalPorts - int(float64(totalPorts)*percentOfTolerance)
+
+	avgAppearances := attempts * provider.SequenceLen / len(portCount)
+	avgTolerance := int(float64(avgAppearances) * percentOfTolerance)
+	minAppearances := avgAppearances - avgTolerance
+	maxAppearances := avgAppearances + avgTolerance
+
+	countOfMatchingPort := 0
+	for _, count := range portCount {
+		if count >= minAppearances && count <= maxAppearances {
+			countOfMatchingPort++
+		}
+	}
+	if countOfMatchingPort < minCountThatShouldMatch {
+		t.Fatalf("%d ports match of wanted range of occurence want %d", countOfMatchingPort, minCountThatShouldMatch)
 	}
 }
