@@ -35,20 +35,38 @@ func (s *SequenceTracker) CheckSequence(srcIP string, port uint16, timestamp tim
 func (s *SequenceTracker) isValidTiming(srcIP string, port uint16, timestamp time.Time) bool {
 	lastTimestamp, exists := s.timestamps[srcIP]
 	if !exists {
-		return true
+		return true // Always valid if it's a new sequence or IP
 	}
 
+	// Check timing constraints
 	if timestamp.Before(lastTimestamp.Add(s.minInterval)) {
-		s.resetSequence(srcIP) // Too quick
-		return false
+		// Evaluate if the repeat is a valid part of the sequence
+		if !s.isRepeatValid(srcIP, port) {
+			s.resetSequence(srcIP) // Invalid repeat, reset sequence
+			return false
+		}
+		// Valid repeat, don't reset but don't immediately return true; further checks needed
 	}
 
 	if !timestamp.Before(lastTimestamp.Add(s.timeout)) {
-		s.resetSequence(srcIP) // Too slow
-		// Do not return here as it could be the start of a new sequence
+		s.resetSequence(srcIP) // Too slow, reset sequence
+		return true            // This can be the start of a new sequence
 	}
 
 	return true
+}
+
+// New helper method to evaluate if a repeated port hit is valid
+func (s *SequenceTracker) isRepeatValid(srcIP string, port uint16) bool {
+	currentSequence, currentHits := s.provider.GetSequence(srcIP, s.timestamps[srcIP]), s.hits[srcIP]
+	if len(currentHits) > 0 {
+		lastHitIndex := currentHits[len(currentHits)-1]
+		if len(currentSequence) > lastHitIndex && currentSequence[lastHitIndex] == port {
+			// The port is a repeat of the last valid step, consider it as valid for keeping the sequence
+			return true
+		}
+	}
+	return false
 }
 
 // processPort checks if the current port is part of the ongoing sequence or starts a new one
