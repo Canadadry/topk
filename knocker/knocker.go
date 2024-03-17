@@ -6,14 +6,6 @@ type PortSequenceProvider interface {
 	GetSequence(srcIP string, timestamp time.Time) []uint16
 }
 
-type StaticSequenceProvider struct {
-	Sequence []uint16
-}
-
-func (p *StaticSequenceProvider) GetSequence(srcIP string, timestamp time.Time) []uint16 {
-	return p.Sequence
-}
-
 type SequenceTracker struct {
 	provider    PortSequenceProvider
 	hits        map[string][]int
