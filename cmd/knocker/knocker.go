@@ -4,6 +4,7 @@ import (
 	"app/knocker"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -40,7 +41,7 @@ func Run(args []string) error {
 	}
 	fmt.Printf("Monitoring for port knocking sequence on %s: %v\n", iface, ports)
 	// Initialize the sequence tracker with the provided ports
-	tracker := knocker.New(ports)
+	tracker := knocker.New(ports, time.Second)
 
 	// Use the handle as a packet source to process all packets
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
@@ -56,7 +57,7 @@ func Run(args []string) error {
 			dstPort := udp.DstPort
 
 			// Check if the current packet is part of the sequence
-			if tracker.CheckSequence(srcIP, uint16(dstPort)) {
+			if tracker.CheckSequence(srcIP, uint16(dstPort), time.Now()) {
 				fmt.Printf("Sequence completed by %s (src port: %d)\n", srcIP, srcPort)
 			}
 		}

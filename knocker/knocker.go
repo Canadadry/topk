@@ -1,27 +1,38 @@
 package knocker
 
-// sequenceTracker keeps track of the sequence of ports knocked
-type sequenceTracker struct {
-	sequence []uint16
-	hits     map[string][]int
-	valid    func(string)
+import "time"
+
+type SequenceTracker struct {
+	sequence   []uint16
+	hits       map[string][]int
+	timestamps map[string]time.Time
+	timeout    time.Duration
 }
 
-// newSequenceTracker creates a new sequence tracker with the given port sequence
-func New(sequence []uint16) *sequenceTracker {
-	return &sequenceTracker{
-		sequence: sequence,
-		hits:     make(map[string][]int),
+func New(sequence []uint16, timeout time.Duration) *SequenceTracker {
+	return &SequenceTracker{
+		sequence:   sequence,
+		hits:       make(map[string][]int),
+		timestamps: make(map[string]time.Time), // Initialize the map
+		timeout:    timeout,
 	}
 }
 
-// checkSequence updates the sequence tracker with the given source IP and port, and returns true if the sequence is completed
-func (s *sequenceTracker) CheckSequence(srcIP string, port uint16) bool {
+// Modify checkSequence to include a timestamp parameter
+func (s *SequenceTracker) CheckSequence(srcIP string, port uint16, timestamp time.Time) bool {
+	// If the IP is not new but the sequence is too slow, reset
+	if lastTimestamp, ok := s.timestamps[srcIP]; ok && !timestamp.Before(lastTimestamp.Add(s.timeout)) {
+		delete(s.hits, srcIP)
+		delete(s.timestamps, srcIP)
+	}
+
 	for ip, seq := range s.hits {
 		if ip == srcIP {
 			nextIndex := len(seq)
 			if nextIndex < len(s.sequence) && s.sequence[nextIndex] == port {
 				s.hits[srcIP] = append(s.hits[srcIP], nextIndex)
+
+				s.timestamps[srcIP] = timestamp
 				if len(s.hits[srcIP]) == len(s.sequence) {
 					// Sequence completed
 					delete(s.hits, srcIP) // Reset for this IP
