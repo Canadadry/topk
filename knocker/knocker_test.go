@@ -5,7 +5,14 @@ import (
 	"time"
 )
 
-// TestCheckSequence tests the checkSequence method of sequenceTracker
+type StaticSequenceProvider struct {
+	Sequence []uint16
+}
+
+func (p *StaticSequenceProvider) GetSequence(srcIP string, timestamp time.Time) []uint16 {
+	return p.Sequence
+}
+
 func TestCheckSequence(t *testing.T) {
 	type step struct {
 		srcIP     string

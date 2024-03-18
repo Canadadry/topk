@@ -1,6 +1,8 @@
 package main
 
 import (
+	"app/cmd/knocker"
+	"app/cmd/knocker_daemon"
 	"app/cmd/sniff"
 	"fmt"
 	"os"
@@ -17,7 +19,9 @@ func main() {
 func run(args []string) error {
 
 	actions := map[string]func([]string) error{
-		sniff.Action: sniff.Run,
+		sniff.Action:          sniff.Run,
+		knocker_daemon.Action: knocker_daemon.Run,
+		knocker.Action:        knocker.Run,
 	}
 
 	listOfAction := make([]string, 0, len(actions))

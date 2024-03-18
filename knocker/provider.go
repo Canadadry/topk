@@ -7,14 +7,6 @@ import (
 	"time"
 )
 
-type StaticSequenceProvider struct {
-	Sequence []uint16
-}
-
-func (p *StaticSequenceProvider) GetSequence(srcIP string, timestamp time.Time) []uint16 {
-	return p.Sequence
-}
-
 type TimeBasedSequenceProvider struct {
 	MinPort          uint16
 	MaxPort          uint16
