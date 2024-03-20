@@ -2,7 +2,7 @@ package knocker_daemon
 
 import (
 	"app/knocker"
-	"app/pcap"
+	"app/listen"
 	"fmt"
 	"time"
 )
@@ -27,7 +27,7 @@ func Run(args []string) error {
 		MinInterval:              time.Second,
 	})
 
-	return pcap.Run(iface, func(ip string, port uint16) {
+	return listen.Pcap(iface, func(ip string, port uint16) {
 		user, ok := tracker.CheckSequence(ip, port, time.Now())
 		if ok {
 			fmt.Println(user, "has validated the challenge")

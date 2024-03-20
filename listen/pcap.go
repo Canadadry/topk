@@ -1,4 +1,4 @@
-package pcap
+package listen
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 
 type ProcessPacket func(ip string, port uint16)
 
-func Run(iface string, processPacket ProcessPacket) error {
+func Pcap(iface string, processPacket ProcessPacket) error {
 
 	handle, err := pcap.OpenLive(iface, 1600, true, pcap.BlockForever)
 	if err != nil {
