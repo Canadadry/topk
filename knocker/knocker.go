@@ -39,11 +39,12 @@ func NewKnocker(provider PortSequenceProvider, timeout, minInterval time.Duratio
 func (s *SequenceTracker) CheckSequence(srcIP string, port uint16, timestamp time.Time) bool {
 	info := s.getIpInfo(srcIP, timestamp)
 
-	if !s.isValidTiming(info, timestamp) {
+	validTiming := s.isValidTiming(info, timestamp)
+	info.lastAttemptAt = timestamp
+
+	if !validTiming {
 		return false
 	}
-
-	info.lastAttemptAt = timestamp
 
 	return s.processPort(info, port)
 }
@@ -83,17 +84,16 @@ func (s *SequenceTracker) processPort(info *sequenceInfo, port uint16) bool {
 		return false
 	}
 
-	if info.expectedNextPorts[0] != port {
-		info.consecutiveMistakes++
+	if info.expectedNextPorts[0] == port {
+		info.expectedNextPorts = info.expectedNextPorts[1:]
+		info.consecutiveMistakes = 0
+		return len(info.expectedNextPorts) == 0
 	}
 
+	info.consecutiveMistakes++
 	if info.consecutiveMistakes > s.MaxAllowedConsecutiveError {
 		info.resetSequence()
-		return false
 	}
+	return false
 
-	info.expectedNextPorts = info.expectedNextPorts[1:]
-	info.consecutiveMistakes = 0
-
-	return len(info.expectedNextPorts) == 0
 }

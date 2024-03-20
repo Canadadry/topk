@@ -22,7 +22,7 @@ func TestCheckSequence(t *testing.T) {
 		valid          bool
 		sequenceNumber int
 	}
-	now := time.Now()
+	now := time.Date(2022, 10, 31, 15, 0, 0, 0, time.UTC)
 	timeout := 10 * time.Second
 	lowerThanMinInterval := 500 * time.Millisecond
 	minInterval := 2 * lowerThanMinInterval
@@ -56,8 +56,8 @@ func TestCheckSequence(t *testing.T) {
 			steps: []step{
 				{"192.168.1.11", 1000, now, false, 0},
 				{"192.168.1.11", 5000, now.Add(1 * minInterval), false, 0},
-				{"192.168.1.11", 5001, now.Add(2 * minInterval), false, 0},
-				{"192.168.1.11", 2000, now.Add(3 * minInterval), false, 0},
+				{"192.168.1.11", 2000, now.Add(2 * minInterval), false, 0},
+				{"192.168.1.11", 5001, now.Add(3 * minInterval), false, 0},
 				{"192.168.1.11", 3000, now.Add(4 * minInterval), false, 0},
 				{"192.168.1.11", 4000, now.Add(5 * minInterval), true, 0},
 			},
@@ -75,13 +75,13 @@ func TestCheckSequence(t *testing.T) {
 		},
 		"Sequence with timeout": {
 			steps: []step{
-				{"192.168.1.4", 1000, time.Now(), false, 0},
-				{"192.168.1.4", 2000, time.Now().Add(1 * minInterval), false, 0},
-				{"192.168.1.4", 3000, time.Now().Add(14 * minInterval), false, 0},
-				{"192.168.1.4", 1000, time.Now().Add(15 * minInterval), false, 0},
-				{"192.168.1.4", 2000, time.Now().Add(16 * minInterval), false, 0},
-				{"192.168.1.4", 3000, time.Now().Add(17 * minInterval), false, 0},
-				{"192.168.1.4", 4000, time.Now().Add(18 * minInterval), true, 0},
+				{"192.168.1.4", 1000, now, false, 0},
+				{"192.168.1.4", 2000, now.Add(1 * minInterval), false, 0},
+				{"192.168.1.4", 3000, now.Add(2*minInterval + timeout), false, 0},
+				{"192.168.1.4", 1000, now.Add(3*minInterval + timeout), false, 0},
+				{"192.168.1.4", 2000, now.Add(4*minInterval + timeout), false, 0},
+				{"192.168.1.4", 3000, now.Add(5*minInterval + timeout), false, 0},
+				{"192.168.1.4", 4000, now.Add(6*minInterval + timeout), true, 0},
 			},
 		},
 		"Sequence too quick": {
@@ -108,12 +108,12 @@ func TestCheckSequence(t *testing.T) {
 		"Sequence attempt with long pause": {
 			steps: []step{
 				{"192.168.1.7", 1000, now, false, 0},
-				{"192.168.1.7", 2000, now.Add(1 * time.Second), false, 0},
-				{"192.168.1.7", 3000, now.Add(timeout + (1 * time.Second)), false, 0},
-				{"192.168.1.7", 1000, now.Add(timeout + (2 * time.Second)), false, 0},
-				{"192.168.1.7", 2000, now.Add(timeout + (3 * time.Second)), false, 0},
-				{"192.168.1.7", 3000, now.Add(timeout + (4 * time.Second)), false, 0},
-				{"192.168.1.7", 4000, now.Add(timeout + (5 * time.Second)), true, 0},
+				{"192.168.1.7", 2000, now.Add(1 * minInterval), false, 0},
+				{"192.168.1.7", 3000, now.Add(1*minInterval + timeout), false, 0},
+				{"192.168.1.7", 1000, now.Add(2*minInterval + timeout), false, 0},
+				{"192.168.1.7", 2000, now.Add(3*minInterval + timeout), false, 0},
+				{"192.168.1.7", 3000, now.Add(4*minInterval + timeout), false, 0},
+				{"192.168.1.7", 4000, now.Add(5*minInterval + timeout), true, 0},
 			},
 		},
 		"Correct sequence with exact minimum interval timing": {
@@ -158,6 +158,7 @@ func TestCheckSequence(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			tracker := NewKnocker(&staticProvider, timeout, minInterval)
+			tracker.MaxAllowedConsecutiveError = 2
 			for i, step := range tt.steps {
 				staticProvider.SequenceId = step.sequenceNumber
 				if got := tracker.CheckSequence(step.srcIP, step.port, step.timestamp); got != step.valid {
