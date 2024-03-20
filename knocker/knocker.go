@@ -10,12 +10,13 @@ type PortSequenceProvider interface {
 
 type sequenceInfo struct {
 	consecutiveMistakes int
-	expectedNextPorts   []uint16
+	hits                int
 	lastAttemptAt       time.Time
+	Ip                  string
 }
 
 func (s *sequenceInfo) resetSequence() {
-	s.expectedNextPorts = nil
+	s.hits = 0
 }
 
 type SequenceTracker struct {
@@ -54,11 +55,9 @@ func (s *SequenceTracker) getIpInfo(srcIP string, timestamp time.Time) *sequence
 	if !ok {
 		info = &sequenceInfo{
 			lastAttemptAt: timestamp.Add(-s.minInterval),
+			Ip:            srcIP,
 		}
 		s.sequences[srcIP] = info
-	}
-	if len(info.expectedNextPorts) == 0 {
-		info.expectedNextPorts = s.provider.GetSequence(srcIP, timestamp)
 	}
 	return info
 }
@@ -80,14 +79,16 @@ func (s *SequenceTracker) isValidTiming(info *sequenceInfo, timestamp time.Time)
 	return true
 }
 func (s *SequenceTracker) processPort(info *sequenceInfo, port uint16) bool {
-	if len(info.expectedNextPorts) == 0 {
+	sequence := s.provider.GetSequence(info.Ip, info.lastAttemptAt)
+
+	if info.hits >= len(sequence) {
 		return false
 	}
 
-	if info.expectedNextPorts[0] == port {
-		info.expectedNextPorts = info.expectedNextPorts[1:]
+	if sequence[info.hits] == port {
+		info.hits++
 		info.consecutiveMistakes = 0
-		return len(info.expectedNextPorts) == 0
+		return len(sequence) == info.hits
 	}
 
 	info.consecutiveMistakes++

@@ -153,6 +153,14 @@ func TestCheckSequence(t *testing.T) {
 				{"192.168.1.20", 4000, now.Add(3 * time.Second), false, 1},
 			},
 		},
+		"valid when client and serve change sequence at the same time ": {
+			steps: []step{
+				{"192.168.1.20", 1000, now, false, 0},
+				{"192.168.1.20", 2000, now.Add(1 * time.Second), false, 0},
+				{"192.168.1.20", 2000, now.Add(2 * time.Second), false, 1},
+				{"192.168.1.20", 1000, now.Add(3 * time.Second), true, 1},
+			},
+		},
 	}
 
 	for name, tt := range tests {
