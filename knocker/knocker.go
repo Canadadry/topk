@@ -1,39 +1,68 @@
 package knocker
 
-import "time"
+import (
+	"time"
+)
 
 type PortSequenceProvider interface {
 	GetSequence(srcIP string, timestamp time.Time) []uint16
 }
 
+type sequenceInfo struct {
+	consecutiveMistakes int
+	expectedNextPorts   []uint16
+	lastAttemptAt       time.Time
+}
+
+func (s *sequenceInfo) resetSequence() {
+	s.expectedNextPorts = nil
+}
+
 type SequenceTracker struct {
-	provider    PortSequenceProvider
-	hits        map[string]int
-	timestamps  map[string]time.Time
-	timeout     time.Duration
-	minInterval time.Duration
+	provider                   PortSequenceProvider
+	sequences                  map[string]*sequenceInfo
+	timeout                    time.Duration
+	minInterval                time.Duration
+	MaxAllowedConsecutiveError int
 }
 
 func NewKnocker(provider PortSequenceProvider, timeout, minInterval time.Duration) *SequenceTracker {
 	return &SequenceTracker{
-		provider:    provider,
-		hits:        make(map[string]int),
-		timestamps:  make(map[string]time.Time), // Initialize the map
-		timeout:     timeout,
-		minInterval: minInterval,
+		provider:                   provider,
+		sequences:                  map[string]*sequenceInfo{},
+		timeout:                    timeout,
+		minInterval:                minInterval,
+		MaxAllowedConsecutiveError: 2,
 	}
 }
 
 func (s *SequenceTracker) CheckSequence(srcIP string, port uint16, timestamp time.Time) bool {
-	if !s.isValidTiming(srcIP, timestamp) {
+	info := s.getIpInfo(srcIP, timestamp)
+
+	if !s.isValidTiming(info, timestamp) {
 		return false
 	}
 
-	return s.processPort(srcIP, port, timestamp)
+	info.lastAttemptAt = timestamp
+
+	return s.processPort(info, port)
 }
 
-func (s *SequenceTracker) isValidTiming(srcIP string, timestamp time.Time) bool {
+func (s *SequenceTracker) getIpInfo(srcIP string, timestamp time.Time) *sequenceInfo {
+	info, ok := s.sequences[srcIP]
+	if !ok {
+		info = &sequenceInfo{
+			lastAttemptAt: timestamp.Add(-s.minInterval),
+		}
+		s.sequences[srcIP] = info
+	}
+	if len(info.expectedNextPorts) == 0 {
+		info.expectedNextPorts = s.provider.GetSequence(srcIP, timestamp)
+	}
+	return info
+}
 
+func (s *SequenceTracker) isValidTiming(info *sequenceInfo, timestamp time.Time) bool {
 	isTooQuick := func(lastTimestamp, timestamp time.Time) bool {
 		return timestamp.Before(lastTimestamp.Add(s.minInterval))
 	}
@@ -42,50 +71,29 @@ func (s *SequenceTracker) isValidTiming(srcIP string, timestamp time.Time) bool 
 		return !timestamp.Before(lastTimestamp.Add(s.timeout))
 	}
 
-	lastTimestamp, exists := s.timestamps[srcIP]
-	if !exists {
-		return true
-	}
-
-	if isTooQuick(lastTimestamp, timestamp) {
-		s.resetSequence(srcIP)
+	if isTooQuick(info.lastAttemptAt, timestamp) || isTooSlow(info.lastAttemptAt, timestamp) {
+		info.resetSequence()
 		return false
-	}
-
-	if isTooSlow(lastTimestamp, timestamp) {
-		s.resetSequence(srcIP)
-		return true
 	}
 
 	return true
 }
-
-func (s *SequenceTracker) processPort(srcIP string, port uint16, timestamp time.Time) bool {
-	currentSequence := s.provider.GetSequence(srcIP, timestamp)
-	nextIndex := s.hits[srcIP]
-
-	if nextIndex >= len(currentSequence) {
-		s.resetSequence(srcIP)
+func (s *SequenceTracker) processPort(info *sequenceInfo, port uint16) bool {
+	if len(info.expectedNextPorts) == 0 {
 		return false
 	}
 
-	if currentSequence[nextIndex] != port {
-		s.resetSequence(srcIP)
+	if info.expectedNextPorts[0] != port {
+		info.consecutiveMistakes++
+	}
+
+	if info.consecutiveMistakes > s.MaxAllowedConsecutiveError {
+		info.resetSequence()
 		return false
 	}
 
-	s.hits[srcIP] += 1
-	s.timestamps[srcIP] = timestamp
+	info.expectedNextPorts = info.expectedNextPorts[1:]
+	info.consecutiveMistakes = 0
 
-	if s.hits[srcIP] == len(currentSequence) {
-		s.resetSequence(srcIP)
-		return true
-	}
-	return false
-
-}
-
-func (s *SequenceTracker) resetSequence(srcIP string) {
-	delete(s.hits, srcIP)
-	delete(s.timestamps, srcIP)
+	return len(info.expectedNextPorts) == 0
 }

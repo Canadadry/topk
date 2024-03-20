@@ -1,7 +1,7 @@
 package sniff
 
 import (
-	"app/pcap"
+	"app/listen"
 	"fmt"
 	"time"
 )
@@ -14,7 +14,7 @@ func Run(args []string) error {
 	}
 	iface := args[0]
 
-	return pcap.Run(iface, func(ip string, port uint16) {
+	return listen.Pcap(iface, func(ip string, port uint16) {
 		fmt.Println("rvc packet at", port, "from", ip, "at", time.Now())
 	})
 }
