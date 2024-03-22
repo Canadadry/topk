@@ -24,7 +24,6 @@ func Server(ctx context.Context, startPort, endPort uint16, processPacket Proces
 			case packetInfo := <-packetChan:
 				processPacket(packetInfo.SrcIP, packetInfo.Port)
 			case <-ctx.Done():
-				fmt.Println("Packet processing goroutine shutting down...")
 				return
 			}
 		}
@@ -41,7 +40,6 @@ func Server(ctx context.Context, startPort, endPort uint16, processPacket Proces
 			return
 		}
 		defer conn.Close()
-
 		buffer := make([]byte, 1024)
 		for {
 			select {
