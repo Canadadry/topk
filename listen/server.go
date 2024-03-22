@@ -6,6 +6,11 @@ import (
 	"net"
 )
 
+type PacketInfo struct {
+	SrcIP string
+	Port  uint16
+}
+
 func Server(ctx context.Context, startPort, endPort uint16, processPacket ProcessPacket) error {
 	packetChan := make(chan PacketInfo)
 	errChan := make(chan error, 1)
@@ -25,9 +30,9 @@ func Server(ctx context.Context, startPort, endPort uint16, processPacket Proces
 		}
 	}()
 
-	listenOnPort := func(ctx context.Context, port int, packetChan chan<- PacketInfo, errChan chan<- error) {
+	listenOnPort := func(ctx context.Context, port uint16, packetChan chan<- PacketInfo, errChan chan<- error) {
 		addr := net.UDPAddr{
-			Port: port,
+			Port: int(port),
 			IP:   net.ParseIP("0.0.0.0"),
 		}
 		conn, err := net.ListenUDP("udp", &addr)
@@ -43,7 +48,7 @@ func Server(ctx context.Context, startPort, endPort uint16, processPacket Proces
 			case <-ctx.Done():
 				return
 			default:
-				length, remoteAddr, err := conn.ReadFromUDP(buffer)
+				_, remoteAddr, err := conn.ReadFromUDP(buffer)
 				if err != nil {
 					fmt.Printf("Error reading from UDP port %d: %v\n", port, err)
 					continue
@@ -55,12 +60,15 @@ func Server(ctx context.Context, startPort, endPort uint16, processPacket Proces
 	}
 
 	for port := startPort; port <= endPort; port++ {
-		go listenOnPort(ctx, int(port), packetChan, errChan)
+		go listenOnPort(ctx, port, packetChan, errChan)
 	}
 
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		if ctx.Err() != context.Canceled {
+			return ctx.Err()
+		}
+		return nil
 	case err := <-errChan:
 		cancel()
 		return err

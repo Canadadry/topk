@@ -7,22 +7,20 @@ import (
 	"time"
 )
 
-// MockProcessPacket keeps track of received packets
 type MockProcessPacket struct {
-	Calls []PacketInfo // Records calls to ProcessPacket
+	Calls []PacketInfo
 }
 
-func (m *MockProcessPacket) ProcessPacket(srcIP string, port int) {
+func (m *MockProcessPacket) ProcessPacket(srcIP string, port uint16) {
 	m.Calls = append(m.Calls, PacketInfo{Port: port, SrcIP: srcIP})
 }
 
 func TestServer(t *testing.T) {
-	// Setup
-	startPort, endPort := uint16(49152), uint16(49153) // Small range for testing
+	startPort, endPort := uint16(49152), uint16(49153)
 	mockProcessor := &MockProcessPacket{}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel() // Ensure cancellation at the end of the test
+	defer cancel()
 
 	go func() {
 		err := Server(ctx, startPort, endPort, mockProcessor.ProcessPacket)
@@ -31,10 +29,8 @@ func TestServer(t *testing.T) {
 		}
 	}()
 
-	// Give the server a moment to start
 	time.Sleep(time.Second)
 
-	// Simulate a client sending a UDP packet
 	conn, err := net.Dial("udp", net.JoinHostPort("localhost", "49152"))
 	if err != nil {
 		t.Fatalf("Failed to dial UDP server: %v", err)
@@ -46,20 +42,12 @@ func TestServer(t *testing.T) {
 		t.Fatalf("Failed to write to UDP server: %v", err)
 	}
 
-	// Give the server time to process the packet
 	time.Sleep(time.Second)
 
-	// Test that the packet was processed
 	if len(mockProcessor.Calls) == 0 {
 		t.Errorf("Expected ProcessPacket to be called at least once, but it wasn't")
 	}
 
-	// Test server shutdown
-	cancel() // Trigger cancellation
-
-	// Allow some time for shutdown
+	cancel()
 	time.Sleep(time.Second)
-
-	// Additional assertions can be made here if there are observable effects of shutdown.
-	// For example, if the server releases resources or logs a message, verify that behavior.
 }
